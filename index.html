@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Porta UI v0.1</title>
+
+  <script src="./index.mjs" defer></script>
+  <script src="./libs/xterm.min.js"></script>
+  <script src="./libs/xterm-addon-fit.min.js"></script>
+
+  <link href="./index.css" rel="stylesheet">
+  <link href="./libs/xterm.min.css" rel="stylesheet">
+</head>
+<body>
+  <span id="discovery" style="display: none">Discovering Porta devices...</span>
+  <button id="button">Start</button>
+
+  <div id="terminal"></div>
+  <canvas id="framebuffer"></canvas>
+</body>
+</html>
