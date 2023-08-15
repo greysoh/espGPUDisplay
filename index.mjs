@@ -7,6 +7,7 @@ const terminal = new Terminal();
 const fitAddon = new FitAddon.FitAddon();
 terminal.loadAddon(fitAddon);
 
+const deviceDetails = {};
 let deviceType;
 let port;
 
@@ -57,12 +58,17 @@ async function main(baud = 115200) {
             const sentienceSplit = sentienceBuffer.split(".").map((i) => parseInt(i));
             const ctx = framebuffer.getContext("2d");
 
+            console.log(sentienceSplit);
+
             // This is purely for convienience.
-            const currentMonochromeColor = sentienceSplit[2];
-            const x = sentienceSplit[0];
-            const y = sentienceSplit[1];
+            const r = sentienceSplit[2] ?? 0;
+            const g = sentienceSplit[3] ?? 0;
+            const b = sentienceSplit[4] ?? 0;
             
-            ctx.fillStyle = "rgb("+currentMonochromeColor+","+currentMonochromeColor+","+currentMonochromeColor+")";
+            const x = sentienceSplit[0] ?? 0;
+            const y = sentienceSplit[1] ?? 0;
+            
+            ctx.fillStyle = "rgb("+r+","+g+","+b+")";
             ctx.fillRect(x+1, y+1, 1, 1);
           }
         }
@@ -74,8 +80,9 @@ async function main(baud = 115200) {
             
             deviceType = detectedDeviceType;
 
-            if (deviceType == "CPU") {
+            if (deviceType.startsWith("CPU")) {
               terminal.style.display = "block";
+              deviceType = "CPU";
 
               terminal.open(terminalElem);
               fitAddon.fit();
@@ -86,21 +93,28 @@ async function main(baud = 115200) {
               terminal.onKey(async(key, ev) => {
                 await writer.write(encoder.encode(key.key.replaceAll("\r", "\r\n")));
               });
-            } else if (deviceType == "GPU") {
+            } else if (deviceType.startsWith("GPU")) {
+              const resDetails = deviceType.split("@")[1].split("x").map((i) => parseInt(i));
+              deviceType = "GPU";
+
               reader.releaseLock();
               writer.releaseLock();
               await port.close();
               
               console.log("INFO: Changing baud rate from 115200 to 921600.");
-
               framebuffer.style.display = "inline";
               discoveryStatus.style.display = "hidden";
-              const ctx = framebuffer.getContext("2d");
 
-              ctx.canvas.width = 256;
-              ctx.canvas.height = 256;
+              const ctx = framebuffer.getContext("2d");
+              ctx.canvas.width = resDetails[1];
+              ctx.canvas.height = resDetails[0];
+              console.log(deviceDetails);
+
+              deviceDetails.width = resDetails[1];
+              deviceDetails.height = resDetails[0];
+              
               ctx.fillStyle = "#000000";
-              ctx.fillRect(0, 0, 256, 256);
+              ctx.fillRect(0, 0, deviceDetails.width, deviceDetails.height);
 
               return await main(921600);
             }
