@@ -17,11 +17,41 @@ const terminalElem = document.getElementById("terminal");
 const framebuffer = document.getElementById("framebuffer");
 const discoveryStatus = document.getElementById("discovery");
 
+const ctx = framebuffer.getContext("2d");
+
+function removeAndCapture(text) {
+  let periodsCount = 0;
+  let index = -1;
+
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '.') {
+      periodsCount++;
+      if (periodsCount === 5) {
+        index = i;
+        break;
+      }
+    }
+  }
+
+  if (index !== -1) {
+    const beforeFivePeriods = text.substring(0, index + 1) ?? "";
+    const removedData = text.substring(index + 1) ?? "";
+    return { shortenedText: beforeFivePeriods, removedData };
+  } else {
+    return { shortenedText: text, removedData: '' };
+  }
+}
+
+
 async function main(baud = 115200) {
   const textDecoder = new TextDecoder("utf-8");
 
   await port.open({ baudRate: baud });
-  let sentienceBuffer = "";
+  let sentienceBuffer = ""; // FIXME: make this more compatible?
+  let tempUnfinishedBuffer; // FIXME: could this be used as sentienceBuffer instead?
+
+  const gpuSentienceBuffer = [];
+  const gpuUnfinishedBits = [];
   
   while (port.readable) {
     const reader = port.readable.getReader();
@@ -36,6 +66,33 @@ async function main(baud = 115200) {
 
         const decodedValue = textDecoder.decode(value);
         sentienceBuffer += decodedValue.replaceAll("\r", "").split("\n")[0]; // FIXME: Some data may be lost doing this. Too bad!
+
+        if (deviceType == "GPU") {
+          const tempDecodedData = decodedValue.replaceAll("\r", "").split("\n");
+          gpuSentienceBuffer.push(...tempDecodedData.filter((i) => i.split(".").length == 5)); // We drop the corrupted bits, for now.
+          gpuUnfinishedBits.push(...tempDecodedData.filter((i) => i.split(".").length != 5));
+  
+          // Time to become a janitor (thank goodness I have a maid outfit...)
+          
+          while (gpuUnfinishedBits.length != 0) {
+            const bit = gpuUnfinishedBits[0];
+            gpuUnfinishedBits.splice(0, 1);
+            
+            tempUnfinishedBuffer += bit;
+
+            if (tempUnfinishedBuffer.split(".").length > 6) { // Maths.
+              console.warn("JanitorMaid: Successfully performed loose data recovery. Data: %s", tempUnfinishedBuffer);
+              const trimmedData = removeAndCapture(tempUnfinishedBuffer);
+              gpuSentienceBuffer.push(trimmedData.shortenedText);
+              gpuUnfinishedBits.unshift(trimmedData.removedData ?? "");
+              tempUnfinishedBuffer = "";
+            }
+          }
+
+          if (tempUnfinishedBuffer != "") {
+            console.error("JanitorMaid: FAILED cleanup opts!");
+          }
+        }
 
         if (deviceType == "CPU") {
           const decodedValueFixed = decodedValue.replaceAll("\r", "").replaceAll("\n", "\r\n");
@@ -54,11 +111,11 @@ async function main(baud = 115200) {
           
           if (!hasCheckFailed) terminal.write(decodedValueFixed);
         } else if (deviceType == "GPU") {
-          for (const sentienceBuffer of decodedValue.split("\n")) {
-            const sentienceSplit = sentienceBuffer.split(".").map((i) => parseInt(i));
-            const ctx = framebuffer.getContext("2d");
+          while (gpuSentienceBuffer.length != 0) {
+            const sentienceBuffer = gpuSentienceBuffer[0];
 
-            console.log(sentienceSplit);
+            //console.log("THE NUMBER #9 [LEAKED]:", sentienceBuffer);
+            const sentienceSplit = sentienceBuffer.split(".").map((i) => parseInt(i));
 
             // This is purely for convienience.
             const r = sentienceSplit[2] ?? 0;
@@ -70,6 +127,8 @@ async function main(baud = 115200) {
             
             ctx.fillStyle = "rgb("+r+","+g+","+b+")";
             ctx.fillRect(x+1, y+1, 1, 1);
+
+            gpuSentienceBuffer.splice(0, 1);
           }
         }
 
@@ -105,10 +164,11 @@ async function main(baud = 115200) {
               framebuffer.style.display = "inline";
               discoveryStatus.style.display = "hidden";
 
-              const ctx = framebuffer.getContext("2d");
               ctx.canvas.width = resDetails[1];
               ctx.canvas.height = resDetails[0];
-              console.log(deviceDetails);
+
+              console.log("width: %s; height: %s", resDetails[1], resDetails[0]);
+              if (resDetails[1] == 15630) console.log("Welcome to the 8k tech demo!");
 
               deviceDetails.width = resDetails[1];
               deviceDetails.height = resDetails[0];
@@ -120,7 +180,7 @@ async function main(baud = 115200) {
             }
           }
 
-          sentienceBuffer = decodedValue.split("\n")[1];
+          sentienceBuffer = decodedValue.replaceAll("\r", "").split("\n");
         }
       }
     } catch (error) {
