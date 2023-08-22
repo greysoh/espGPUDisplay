@@ -81,7 +81,7 @@ async function main(baud = 115200) {
             deviceType = detectedDeviceType;
 
             if (deviceType.startsWith("CPU")) {
-              terminal.style.display = "block";
+              terminalElem.style.display = "block";
               deviceType = "CPU";
 
               terminal.open(terminalElem);
@@ -95,13 +95,10 @@ async function main(baud = 115200) {
               });
             } else if (deviceType.startsWith("GPU")) {
               const resDetails = deviceType.split("@")[1].split("x").map((i) => parseInt(i));
-              deviceType = "GPU";
+              const baudRate = parseInt(deviceType.split(".")[1].split("@")[0]);
 
-              reader.releaseLock();
-              writer.releaseLock();
-              await port.close();
+              deviceType = "GPU";
               
-              console.log("INFO: Changing baud rate from 115200 to 921600.");
               framebuffer.style.display = "inline";
               discoveryStatus.style.display = "hidden";
 
@@ -116,7 +113,15 @@ async function main(baud = 115200) {
               ctx.fillStyle = "#000000";
               ctx.fillRect(0, 0, deviceDetails.width, deviceDetails.height);
 
-              return await main(921600);
+              if (baudRate != 115200) {
+                console.log("INFO: Changing baud rate from 115200 to %s.", baudRate); 
+        
+                reader.releaseLock();
+                writer.releaseLock();
+                await port.close();
+
+                return await main(baudRate);
+              }
             }
           }
 
