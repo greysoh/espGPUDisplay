@@ -3,21 +3,16 @@ if (!navigator.serial) {
   throw new Error("nah fam");
 }
 
-const terminal = new Terminal();
-const fitAddon = new FitAddon.FitAddon();
-terminal.loadAddon(fitAddon);
-
-const deviceDetails = {};
-let deviceType;
+let deviceType = "";
 let port;
 
 const button = document.getElementById("button");
-
-const terminalElem = document.getElementById("terminal");
-const framebuffer = document.getElementById("framebuffer");
 const discoveryStatus = document.getElementById("discovery");
 
-async function main(baud = 115200) {
+import * as cpu from "./modules/cpu.mjs";
+import * as gpu from "./modules/gpu.mjs";
+
+export async function main(baud = 115200) {
   const textDecoder = new TextDecoder("utf-8");
 
   await port.open({ baudRate: baud });
@@ -37,38 +32,10 @@ async function main(baud = 115200) {
         const decodedValue = textDecoder.decode(value);
         sentienceBuffer += decodedValue.replaceAll("\r", "").split("\n")[0]; // FIXME: Some data may be lost doing this. Too bad!
 
-        if (deviceType == "CPU") {
-          const decodedValueFixed = decodedValue.replaceAll("\r", "").replaceAll("\n", "\r\n");
-
-          const decodedCodes = decodedValueFixed.split("").map((i) => i.charCodeAt(0));
-          let hasCheckFailed; // FIXME: is there a better way to do this?
-          
-          for (const code of decodedCodes) {
-            if (code == 127) {
-              terminal.write("\b \b");
-
-              hasCheckFailed = true;
-              continue;
-            }
-          }
-          
-          if (!hasCheckFailed) terminal.write(decodedValueFixed);
-        } else if (deviceType == "GPU") {
-          for (const sentienceBuffer of decodedValue.split("\n")) {
-            const sentienceSplit = sentienceBuffer.split(".").map((i) => parseInt(i));
-            const ctx = framebuffer.getContext("2d");
-
-            // This is purely for convienience.
-            const r = sentienceSplit[2] ?? 0;
-            const g = sentienceSplit[3] ?? 0;
-            const b = sentienceSplit[4] ?? 0;
-            
-            const x = sentienceSplit[0] ?? 0;
-            const y = sentienceSplit[1] ?? 0;
-            
-            ctx.fillStyle = "rgb("+r+","+g+","+b+")";
-            ctx.fillRect(x+1, y+1, 1, 1);
-          }
+        if (deviceType.startsWith("CPU")) {
+          cpu.loop(decodedValue);
+        } else if (deviceType.startsWith("GPU")) {
+          gpu.loop(decodedValue);
         }
 
         if (decodedValue.includes("\n")) {
@@ -79,47 +46,9 @@ async function main(baud = 115200) {
             deviceType = detectedDeviceType;
 
             if (deviceType.startsWith("CPU")) {
-              terminalElem.style.display = "block";
-              deviceType = "CPU";
-
-              terminal.open(terminalElem);
-              fitAddon.fit();
-
-              const resizeObserver = new ResizeObserver(fitAddon.fit);
-              resizeObserver.observe(terminalElem);
-
-              terminal.onKey(async(key, ev) => {
-                await writer.write(encoder.encode(key.key.replaceAll("\r", "\r\n")));
-              });
+              await cpu.init(decodedValue, deviceType, reader, writer);
             } else if (deviceType.startsWith("GPU")) {
-              const resDetails = deviceType.split("@")[1].split("x").map((i) => parseInt(i));
-              const baudRate = parseInt(deviceType.split(".")[1].split("@")[0]);
-
-              deviceType = "GPU";
-              
-              framebuffer.style.display = "inline";
-              discoveryStatus.style.display = "hidden";
-
-              const ctx = framebuffer.getContext("2d");
-              ctx.canvas.width = resDetails[1];
-              ctx.canvas.height = resDetails[0];
-              console.log(deviceDetails);
-
-              deviceDetails.width = resDetails[1];
-              deviceDetails.height = resDetails[0];
-              
-              ctx.fillStyle = "#000000";
-              ctx.fillRect(0, 0, deviceDetails.width, deviceDetails.height);
-
-              if (baudRate != 115200) {
-                console.log("INFO: Changing baud rate from 115200 to %s.", baudRate); 
-        
-                reader.releaseLock();
-                writer.releaseLock();
-                await port.close();
-
-                return await main(baudRate);
-              }
+              await gpu.init(decodedValue, deviceType, reader, writer, port);
             }
           }
 
