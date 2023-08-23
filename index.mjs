@@ -58,8 +58,6 @@ async function main(baud = 115200) {
             const sentienceSplit = sentienceBuffer.split(".").map((i) => parseInt(i));
             const ctx = framebuffer.getContext("2d");
 
-            console.log(sentienceSplit);
-
             // This is purely for convienience.
             const r = sentienceSplit[2] ?? 0;
             const g = sentienceSplit[3] ?? 0;
