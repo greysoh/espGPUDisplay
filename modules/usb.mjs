@@ -8,14 +8,14 @@ const encoder = new TextEncoder();
 
 const terminalElem = document.getElementById("terminal");
 
-export function loop(decodedValue) {
-  console.log(decodedValue);
-  if (!decodedValue.endsWith("\n")) return;
-  console.log(true);
-
-  if (decodedValue.startsWith("LIST ")) {
-    const meow = decodedValue.replace("LIST ", "");
-    terminal.write("\r\n - " + meow);
+export function loop(serialArray) {
+  for (const decodedValue of serialArray) {
+    if (!decodedValue.endsWith("\n")) return;
+    
+    if (decodedValue.startsWith("LIST ")) {
+      const meow = decodedValue.replace("LIST ", "");
+      terminal.write("\r\n - " + meow);
+    }
   }
 }
 

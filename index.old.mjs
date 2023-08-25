@@ -17,8 +17,7 @@ export async function main(baud = 115200) {
   const textDecoder = new TextDecoder("utf-8");
 
   await port.open({ baudRate: baud });
-  const serialArray = [];
-  let serialBuffer = "";
+  let sentienceBuffer = "";
   
   while (port.readable) {
     const reader = port.readable.getReader();
@@ -30,44 +29,19 @@ export async function main(baud = 115200) {
         if (done) break; // We done
 
         const decodedValue = textDecoder.decode(value);
-        serialBuffer += decodedValue;
-
-        // Done this way so we can keep track of what data is complete and incomplete.
-        const tempItemOp = serialBuffer.replaceAll("\n", "...MARK...\n").split("\n").map((i) => i.replace("...MARK...", "\n"));
-        
-        // FIXME: We probably shouldn't need to do this, and likely should remove it instead, but without clearing it out, everything breaks.
-        serialBuffer = ""; // Nuke the current buffer, so we can fit new data into it.
-        
-        console.log("serial buffer:", serialBuffer);
-        console.log("serial array:", serialArray);
-        console.log("temp item:", tempItemOp);
-
-        for (const item of tempItemOp) {
-          if (item.endsWith("\n")) {
-            const missingItemsForSerialBuffer = serialBuffer.split("\n");
-            serialArray.push(missingItemsForSerialBuffer[0] + item);
-
-            for (var i = 0; i < missingItemsForSerialBuffer.length-2; i++) serialArray.push(missingItemsForSerialBuffer[i]);
-            serialBuffer = missingItemsForSerialBuffer[missingItemsForSerialBuffer.length-1];
-          } else {
-            console.warn("DEBUG<overflow operation>:", item);
-            console.warn("DEBUG<currently decoded value>:", decodedValue);
-            serialBuffer += item;
-          }
-        }
+        sentienceBuffer += decodedValue.replaceAll("\r", "").split("\n")[0]; // FIXME: Some data may be lost doing this. Too bad!
+        if (decodedValue.includes("\n") && deviceType.startsWith("STORAGE_CPU")) sentienceBuffer += "\n";
 
         if (deviceType.startsWith("CPU")) {
           cpu.loop(decodedValue);
         } else if (deviceType.startsWith("GPU")) {
-          gpu.loop(serialArray);
+          gpu.loop(decodedValue);
         } else if (deviceType.startsWith("STORAGE_CPU")) {
-          usb.loop(serialArray);
+          usb.loop(sentienceBuffer);
         }
 
-        if (!deviceType && decodedValue.includes("\n") && serialArray[0]) {
-          if (serialArray[0].includes("device_tree")) {
-            const sentienceBuffer = serialArray[0];
-            
+        if (decodedValue.includes("\n")) {
+          if (sentienceBuffer.includes("device_tree") && !deviceType) {
             const detectedDeviceType = sentienceBuffer.split("device_tree: ")[1];
             discoveryStatus.innerText = "Detected device type is " + detectedDeviceType;
             
@@ -81,9 +55,9 @@ export async function main(baud = 115200) {
               await usb.init(decodedValue, deviceType, reader, writer);
             }
           }
-        }
 
-        serialArray.splice(0, serialArray.length-1); // Clean up our data
+          sentienceBuffer = decodedValue.split("\n")[1];
+        }
       }
     } catch (error) {
       console.error(error);

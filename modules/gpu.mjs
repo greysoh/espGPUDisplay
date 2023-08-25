@@ -6,9 +6,9 @@ const discoveryStatus = document.getElementById("discovery");
 const framebuffer = document.getElementById("framebuffer");
 const ctx = framebuffer.getContext("2d");
 
-export function loop(decodedValue) {
-  console.log(decodedValue);
-  for (const sentienceBuffer of decodedValue.split("\n")) {
+export function loop(serialArray) {
+  console.log(serialArray);
+  for (const sentienceBuffer of serialArray) {
     const sentienceSplit = sentienceBuffer.split(".").map((i) => parseInt(i));
 
     const r = sentienceSplit[2] ?? 0;
