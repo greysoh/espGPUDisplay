@@ -13,6 +13,8 @@ import * as cpu from "./modules/cpu.mjs";
 import * as gpu from "./modules/gpu.mjs";
 import * as usb from "./modules/usb.mjs";
 
+import * as stresser from "./modules/stresser.mjs";
+
 export async function main(baud = 115200) {
   const textDecoder = new TextDecoder("utf-8");
 
@@ -38,9 +40,9 @@ export async function main(baud = 115200) {
         // FIXME: We probably shouldn't need to do this, and likely should remove it instead, but without clearing it out, everything breaks.
         serialBuffer = ""; // Nuke the current buffer, so we can fit new data into it.
         
-        console.log("serial buffer:", serialBuffer);
-        console.log("serial array:", serialArray);
-        console.log("temp item:", tempItemOp);
+        //console.log("serial buffer:", serialBuffer);
+        //console.log("serial array:", serialArray);
+        //console.log("temp item:", tempItemOp);
 
         for (const item of tempItemOp) {
           if (item.endsWith("\n")) {
@@ -50,8 +52,8 @@ export async function main(baud = 115200) {
             for (var i = 0; i < missingItemsForSerialBuffer.length-2; i++) serialArray.push(missingItemsForSerialBuffer[i]);
             serialBuffer = missingItemsForSerialBuffer[missingItemsForSerialBuffer.length-1];
           } else {
-            console.warn("DEBUG<overflow operation>:", item);
-            console.warn("DEBUG<currently decoded value>:", decodedValue);
+            //console.warn("DEBUG<overflow operation>:", item);
+            //console.warn("DEBUG<currently decoded value>:", decodedValue);
             serialBuffer += item;
           }
         }
@@ -62,6 +64,8 @@ export async function main(baud = 115200) {
           gpu.loop(serialArray);
         } else if (deviceType.startsWith("STORAGE_CPU")) {
           usb.loop(serialArray);
+        } else if (deviceType.startsWith("LOOPYSTRESSER_CPU")) {
+          await stresser.loop(serialArray);
         }
 
         if (!deviceType && decodedValue.includes("\n") && serialArray[0]) {
@@ -79,6 +83,8 @@ export async function main(baud = 115200) {
               await gpu.init(decodedValue, deviceType, reader, writer, port);
             } else if (deviceType.startsWith("STORAGE_CPU")) {
               await usb.init(decodedValue, deviceType, reader, writer);
+            } else if (deviceType.startsWith("LOOPYSTRESSER_CPU")) {
+              await stresser.init(decodedValue, deviceType, reader, writer, port);
             }
           }
         }
