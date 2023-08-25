@@ -2,6 +2,8 @@ const terminal = new Terminal();
 const fitAddon = new FitAddon.FitAddon();
 terminal.loadAddon(fitAddon);
 
+const encoder = new TextEncoder();
+
 const terminalElem = document.getElementById("terminal");
 
 export function loop(decodedValue) {

@@ -11,6 +11,7 @@ const discoveryStatus = document.getElementById("discovery");
 
 import * as cpu from "./modules/cpu.mjs";
 import * as gpu from "./modules/gpu.mjs";
+import * as usb from "./modules/usb.mjs";
 
 export async function main(baud = 115200) {
   const textDecoder = new TextDecoder("utf-8");
@@ -22,8 +23,6 @@ export async function main(baud = 115200) {
     const reader = port.readable.getReader();
     const writer = port.writable.getWriter();
 
-    const encoder = new TextEncoder();
-
     try {
       while (true) {
         const { value, done } = await reader.read();
@@ -31,11 +30,14 @@ export async function main(baud = 115200) {
 
         const decodedValue = textDecoder.decode(value);
         sentienceBuffer += decodedValue.replaceAll("\r", "").split("\n")[0]; // FIXME: Some data may be lost doing this. Too bad!
+        if (decodedValue.includes("\n") && deviceType.startsWith("STORAGE_CPU")) sentienceBuffer += "\n";
 
         if (deviceType.startsWith("CPU")) {
           cpu.loop(decodedValue);
         } else if (deviceType.startsWith("GPU")) {
           gpu.loop(decodedValue);
+        } else if (deviceType.startsWith("STORAGE_CPU")) {
+          usb.loop(sentienceBuffer);
         }
 
         if (decodedValue.includes("\n")) {
@@ -49,6 +51,8 @@ export async function main(baud = 115200) {
               await cpu.init(decodedValue, deviceType, reader, writer);
             } else if (deviceType.startsWith("GPU")) {
               await gpu.init(decodedValue, deviceType, reader, writer, port);
+            } else if (deviceType.startsWith("STORAGE_CPU")) {
+              await usb.init(decodedValue, deviceType, reader, writer);
             }
           }
 
