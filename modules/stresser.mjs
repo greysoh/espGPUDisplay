@@ -10,6 +10,18 @@ let enableTimeTravel = true;
 let expectedCurrentIteration = 0;
 const failureArray = [];
 
+document.forceEndNOW = () => {
+  terminal.write("\r\nAll done [forced].\r\n\n");
+
+  terminal.write(`\r\nTotal errors: ${failureArray.length}`);
+  terminal.write(`\r\nAverage errors per second: ${failureArray.length/60}`);
+  
+  if (enableTimeTravel) terminal.write("\r\nNote that time travel is enabled in the options, allowing the iterations to skip forward incase of a gap, and not snowball.");
+
+  terminal.write("\r\nDumping object in console...");
+  console.log("failure array:", failureArray);
+};
+
 export async function loop(serialArray) {
   for (const item of serialArray) {
     console.log(item.split(""));
@@ -26,12 +38,6 @@ export async function loop(serialArray) {
 
       terminal.write("\r\nDumping object in console...");
       console.log("failure array:", failureArray);
-
-      terminal.write("\r\nReloading in 10 seconds...");
-      await new Promise((i) => setTimeout(i, 10000));
-
-      window.location.reload();
-      continue;
     } else if (item.startsWith("device_tree")) {
       continue;
     }
@@ -41,17 +47,17 @@ export async function loop(serialArray) {
 
     if (reportedCurrentIteration != expectedCurrentIteration) {
       terminal.write(`\r\nIteration mismatch! (${reportedCurrentIteration} != ${expectedCurrentIteration}) Reporting error...`);
-      
-      if (enableTimeTravel) {
-        terminal.write(`\r\nTime travel is enabled. Jumping time forward...`);
-        expectedCurrentIteration = reportedCurrentIteration;
-      }
 
       failureArray.push({
         type: "EITERATIONMISMATCH",
         id: expectedCurrentIteration,
         recieved: reportedCurrentIteration
       })
+
+      if (enableTimeTravel) {
+        terminal.write(`\r\nTime travel is enabled. Jumping time forward...`);
+        expectedCurrentIteration = reportedCurrentIteration;
+      }
     }
 
 
