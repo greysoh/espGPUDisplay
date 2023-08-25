@@ -13,6 +13,8 @@ import * as cpu from "./modules/cpu.mjs";
 import * as gpu from "./modules/gpu.mjs";
 import * as usb from "./modules/usb.mjs";
 
+import * as stresser from "./modules/stresser.mjs";
+
 export async function main(baud = 115200) {
   const textDecoder = new TextDecoder("utf-8");
 
@@ -38,6 +40,8 @@ export async function main(baud = 115200) {
           gpu.loop(decodedValue);
         } else if (deviceType.startsWith("STORAGE_CPU")) {
           usb.loop(sentienceBuffer);
+        } else if (deviceType.startsWith("LOOPYSTRESSER_CPU")) {
+          await stresser.loop(sentienceBuffer.split("\n").map((i) => i + "\r\n"));
         }
 
         if (decodedValue.includes("\n")) {
@@ -53,6 +57,8 @@ export async function main(baud = 115200) {
               await gpu.init(decodedValue, deviceType, reader, writer, port);
             } else if (deviceType.startsWith("STORAGE_CPU")) {
               await usb.init(decodedValue, deviceType, reader, writer);
+            } else if (deviceType.startsWith("LOOPYSTRESSER_CPU")) {
+              await stresser.init(decodedValue, deviceType, reader, writer, port);
             }
           }
 
