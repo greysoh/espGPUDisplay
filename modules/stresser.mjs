@@ -1,3 +1,5 @@
+import { main } from "../index.mjs";
+
 const terminal = new Terminal();
 const fitAddon = new FitAddon.FitAddon();
 terminal.loadAddon(fitAddon);
@@ -20,13 +22,35 @@ document.forceEndNOW = () => {
 
   terminal.write("\r\nDumping object in console...");
   console.log("failure array:", failureArray);
+
+  isBenchDone = true;
+  return;
 };
 
+let reader;
+let writer;
+let port;
+
+let isBenchDone = false;
+
 export async function loop(serialArray) {
+  if (isBenchDone) return;
+
   for (const item of serialArray) {
     console.log(item.split(""));
     if (item == "BEGIN\r\n") {
+      if (!reader || !writer) await new Promise((i) => setTimeout(i, 500));
+
       terminal.write("\r\nBeginning benchmark in 1 second...");
+      terminal.write("\r\n - Upgrading connection...");
+
+      console.log("INFO: Changing baud rate from 115200 to 921600.");
+
+      reader.releaseLock();
+      writer.releaseLock();
+      await port.close();
+  
+      main(921600);
       continue;
     } else if (item == "END\r\n") {
       terminal.write("\r\nAll done.\r\n\n");
@@ -38,6 +62,9 @@ export async function loop(serialArray) {
 
       terminal.write("\r\nDumping object in console...");
       console.log("failure array:", failureArray);
+
+      isBenchDone = true;
+      return;
     } else if (item.startsWith("device_tree")) {
       continue;
     }
@@ -54,10 +81,7 @@ export async function loop(serialArray) {
         recieved: reportedCurrentIteration
       })
 
-      if (enableTimeTravel) {
-        terminal.write(`\r\nTime travel is enabled. Jumping time forward...`);
-        expectedCurrentIteration = reportedCurrentIteration;
-      }
+      if (enableTimeTravel) expectedCurrentIteration = reportedCurrentIteration;
     }
 
 
@@ -74,11 +98,15 @@ export async function loop(serialArray) {
   }
 }
 
-export async function init(decodedValue, deviceType, reader, writer) {
+export async function init(decodedValue, deviceType, readerLocal, writerLocal, portLocal) {
   terminalElem.style.display = "block";
 
   terminal.open(terminalElem);
   fitAddon.fit();
 
   terminal.write("LoopyStresser for espGPUDisplay\r\nWaiting for INIT...");
+  
+  reader = readerLocal;
+  writer = writerLocal;
+  port = portLocal;
 }
